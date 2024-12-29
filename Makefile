@@ -549,7 +549,8 @@ LINUXINCLUDE    := \
 		-I$(objtree)/include \
 		$(USERINCLUDE)
 
-LINUXINCLUDE += -I$(srctree)/kernel/usac/include
+LINUXINCLUDE += -I$(srctree)/kernel/usac/project1/include
+LINUXINCLUDE += -I$(srctree)/kernel/usac/project3/include
 
 KBUILD_AFLAGS   := -D__ASSEMBLY__ -fno-PIE
 

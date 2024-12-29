@@ -435,3 +435,16 @@
 552 common matus_track_syscall_usage     	sys_matus_track_syscall_usage
 553 common matus_get_io_throttle 			sys_matus_get_io_throttle
 
+554 common matus_tamalloc 					sys_matus_tamalloc
+# 555 -> fase 2 syscall 2 
+# 556 -> fase 2 syscall 3 
+
+# Project 3
+
+557 common matus_add_memory_limit 			sys_matus_add_memory_limit
+558 common matus_get_memory_limits 			sys_matus_get_memory_limits
+559 common matus_update_memory_limit 		sys_matus_update_memory_limit
+560 common matus_remove_memory_limit 		sys_matus_remove_memory_limit
+
+
+
