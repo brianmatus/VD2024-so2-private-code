@@ -21,10 +21,47 @@ struct memory_limit_entry {
 };
 
 static LIST_HEAD(memory_list);
+
 static DEFINE_MUTEX(memory_list_mutex);
 
 
-//TODO function ---> bool is_request_accepted(max, total, requested)
+bool is_request_accepted(pid_t pid, size_t requested_memory) {
+    struct memory_limit_entry *entry;
+    struct task_struct *task;
+    size_t current_usage;
+
+    task = find_task_by_vpid(pid);
+    if (!task) {
+    	printk(KERN_ERR "INVALID PID SEARCH? PROCESS DIED AFTER REQUESTING MEMORY????");
+        return false; //Should not happen?
+    }
+
+    if (!task->mm) {
+    	printk(KERN_ERR "INVALID PID total_vm VALUE???? SHOULD NOT HAPPEN?");
+        return false; //Should not happen?
+    }
+
+    current_usage = (task->mm->total_vm << PAGE_SHIFT);
+
+    mutex_lock(&memory_list_mutex);
+    list_for_each_entry(entry, &memory_list, list) {
+        if (entry->data.pid == pid) {
+            if (current_usage + requested_memory > entry->data.memory_limit) {
+                mutex_unlock(&memory_list_mutex);
+                printk(KERN_INFO "USAC-Project3-> Denied call for PID %d\n", pid);
+                return false;
+            }
+            //Accept request
+            mutex_unlock(&memory_list_mutex);
+            printk(KERN_INFO "USAC-Project3-> Allowed call for PID %d, total_vm is now %zu\n", pid, current_usage + requested_memory);
+            return true;
+            break;
+        }
+    }
+    mutex_unlock(&memory_list_mutex);
+    return true;
+}
+
 
 SYSCALL_DEFINE2(matus_add_memory_limit, pid_t, process_pid, size_t, memory_limit)
 {
@@ -44,7 +81,7 @@ SYSCALL_DEFINE2(matus_add_memory_limit, pid_t, process_pid, size_t, memory_limit
 	list_add(&entry->list, &memory_list);
 	mutex_unlock(&memory_list_mutex);
 
-	print_memory_limitation_list();
+	// print_memory_limitation_list();
 	return 0;
 }
 
@@ -84,7 +121,7 @@ SYSCALL_DEFINE3(matus_get_memory_limits, struct memory_limitation*, u_processes_
 	}
 
 	kfree(k_processes_buffer);
-	print_memory_limitation_list();
+	// print_memory_limitation_list();
 	return 0;
 }
 
@@ -101,7 +138,7 @@ SYSCALL_DEFINE2(matus_update_memory_limit, pid_t, process_pid, size_t, memory_li
 		if (entry->data.pid == process_pid) {
 			entry->data.memory_limit = memory_limit;
 			mutex_unlock(&memory_list_mutex);
-			print_memory_limitation_list();
+			// print_memory_limitation_list();
 			return 0;
 		}
 	}
@@ -125,7 +162,7 @@ SYSCALL_DEFINE1(matus_remove_memory_limit, pid_t, process_pid)
 			list_del(&entry->list);
 			kfree(entry);
 			mutex_unlock(&memory_list_mutex);
-			print_memory_limitation_list();
+			// print_memory_limitation_list();
 			return 0;
 		}
 	}
@@ -136,15 +173,15 @@ SYSCALL_DEFINE1(matus_remove_memory_limit, pid_t, process_pid)
 
 
 
-void print_memory_limitation_list(void) {
-	struct memory_limit_entry * entry;
+// void print_memory_limitation_list(void) {
+// 	struct memory_limit_entry * entry;
 
-	mutex_lock(&memory_list_mutex);
-	printk("-----------------------------------------------\n");
-	printk("Printing processes that have memory limitation:\n");
-	list_for_each_entry(entry, &memory_list, list) {
-		printk(KERN_INFO "PID: %d, memory_limit: %zu\n", entry->data.pid, entry->data.memory_limit);
-	}
-	printk("-----------------------------------------------\n");
-	mutex_unlock(&memory_list_mutex);
-}
+// 	mutex_lock(&memory_list_mutex);
+// 	printk("-----------------------------------------------\n");
+// 	printk("Printing processes that have memory limitation:\n");
+// 	list_for_each_entry(entry, &memory_list, list) {
+// 		printk(KERN_INFO "PID: %d, memory_limit: %zu\n", entry->data.pid, entry->data.memory_limit);
+// 	}
+// 	printk("-----------------------------------------------\n");
+// 	mutex_unlock(&memory_list_mutex);
+// }
