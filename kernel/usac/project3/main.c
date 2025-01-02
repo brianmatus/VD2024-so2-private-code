@@ -65,32 +65,74 @@ bool is_request_accepted(pid_t pid, size_t requested_memory) {
 
 SYSCALL_DEFINE2(matus_add_memory_limit, pid_t, process_pid, size_t, memory_limit)
 {
-	//TODO chequeos de argumentos y errores
-	//TODO chequeo de sudoer
-
+	struct task_struct *task;
 	struct memory_limit_entry *entry;
+
+	if (process_pid < 0) {
+        return -EINVAL;
+    }
+
+    task = find_task_by_vpid(process_pid);
+    if (!task) {
+        return -ESRCH;
+    }
+
+    if (!capable(CAP_SYS_ADMIN)) {
+        return -EPERM;
+    }
+
+    if ((long)memory_limit < 0) {
+        return -EINVAL;
+    }
+
+
+    //Este requerimiento es un poco distinto de lo que se esperaria.
+    //Para futuras versiones, seria mejor poder limitar procesos aunque se pasen de su uso actual
+    //Para que el proceso solo sea capaz de liberar memoria pero no solicitar nueva
+    //Por otro lado, 
+	size_t current_usage = (task->mm->total_vm << PAGE_SHIFT);
+	if (memory_limit < current_usage) {
+        return -100; // Error: el nuevo límite es menor al consumo actual
+    }
+
+    mutex_lock(&memory_list_mutex);
+
+    // Validar si el proceso ya está en la lista
+    struct memory_limit_entry *tmp;
+    list_for_each_entry(tmp, &memory_list, list) {
+        if (tmp->data.pid == process_pid) {
+            mutex_unlock(&memory_list_mutex);
+            return -101;
+        }
+    }
+
 	entry = kmalloc(sizeof(struct memory_limit_entry), GFP_KERNEL);
 	if (!entry) {
+		mutex_unlock(&memory_list_mutex);
 		return -ENOMEM;
 	}
 
 	entry->data.pid = process_pid;
 	entry->data.memory_limit = memory_limit;
-
-	mutex_lock(&memory_list_mutex);
 	list_add(&entry->list, &memory_list);
-	mutex_unlock(&memory_list_mutex);
 
-	// print_memory_limitation_list();
+	mutex_unlock(&memory_list_mutex);
 	return 0;
 }
 
 
 SYSCALL_DEFINE3(matus_get_memory_limits, struct memory_limitation*, u_processes_buffer, size_t, max_entries, int*, processes_returned)
 {
-	//TODO manejo de errores, argumentos, sudoers, etc.
 	struct memory_limit_entry * entry;
 	int count = 0;
+
+	if (!u_processes_buffer || !processes_returned) {
+        return -EINVAL; //Validar el puntero de user-space
+    }
+
+    if (max_entries <= 0) {
+        return -EINVAL;
+    }
 
 	//Memoria para el buffer del lado del kernel
 	struct memory_limitation* k_processes_buffer = kmalloc_array(max_entries, sizeof(struct memory_limitation), GFP_KERNEL);
@@ -128,31 +170,45 @@ SYSCALL_DEFINE3(matus_get_memory_limits, struct memory_limitation*, u_processes_
 
 SYSCALL_DEFINE2(matus_update_memory_limit, pid_t, process_pid, size_t, memory_limit)
 {
-	//TODO manejo de argumentos, errores, sudoers, etc
-
-
 	struct memory_limit_entry * entry;
+
+	if (!capable(CAP_SYS_ADMIN)) {
+        return -EPERM;
+    }
+
+    if (process_pid < 0) {
+        return -EINVAL;
+    }
+
+    if (memory_limit < 0) {
+        return -EINVAL;
+    }
+
 
 	mutex_lock(&memory_list_mutex);
 	list_for_each_entry(entry, &memory_list, list) {
 		if (entry->data.pid == process_pid) {
 			entry->data.memory_limit = memory_limit;
 			mutex_unlock(&memory_list_mutex);
-			// print_memory_limitation_list();
 			return 0;
 		}
 	}
 	mutex_unlock(&memory_list_mutex);
-	return -ESRCH;
+	return -102; //Process not on list
 }
 
 
 SYSCALL_DEFINE1(matus_remove_memory_limit, pid_t, process_pid)
 {
-	//TODO manejo de errores y argumentos
-	//TODO sudoer
-
 	struct memory_limit_entry * entry, * tmp;
+
+	if (!capable(CAP_SYS_ADMIN)) {
+        return -EPERM;
+    }
+
+    if (process_pid < 0) {
+        return -EINVAL;
+    }
 
 	mutex_lock(&memory_list_mutex);
 
@@ -168,7 +224,7 @@ SYSCALL_DEFINE1(matus_remove_memory_limit, pid_t, process_pid)
 	}
 
 	mutex_unlock(&memory_list_mutex);
-	return -ESRCH;
+	return -102; //Process not in list
 }
 
 

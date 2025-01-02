@@ -228,7 +228,7 @@ SYSCALL_DEFINE1(brk, unsigned long, brk)
 		printk(KERN_INFO "USAC-Project3-> Memory allocation request denied for PID: %d, Requested: %lu bytes\n", 
 			current->pid, newbrk - oldbrk);
 		goto out;
-    	}
+	}
 
 
 	if (oldbrk == newbrk) {
