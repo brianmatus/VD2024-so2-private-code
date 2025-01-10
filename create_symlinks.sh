@@ -38,6 +38,11 @@ git ls-files | while read -r file; do
     continue
   fi
 
+  # Skip ./usac_tests since this is not part of kernel development
+  if [[ "$RELATIVE_PATH" == usac_tests/* ]]; then
+    continue
+  fi
+
   if is_in_symlinked_dir "$(dirname "$ORIGINAL_PATH")"; then
     # echo "Skipping $file because it resides in a symlinked directory." # TODO uncomment if wanted
     continue

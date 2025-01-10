@@ -4,6 +4,7 @@
 #include <linux/fs.h>
 #include <linux/uaccess.h>
 #include <linux/proc_fs.h>
+#include <linux/delayacct.h>
 
 //#include <linux/ioacct.h>
 
@@ -44,7 +45,17 @@ SYSCALL_DEFINE2(matus_get_io_throttle, pid_t, pid, struct io_stats __user *, sta
     kstats.bytes_read_disk = task->ioac.read_bytes;
     kstats.bytes_written_disk = task->ioac.write_bytes;
 
-    //TODO io wait time
+    //TODO check if io wait time is correct
+#ifdef CONFIG_TASK_DELAY_ACCT
+    if (task->delays) {
+        kstats.io_wait_time = task->delays->blkio_delay;
+        printk(KERN_INFO "I/O wait time: %lu ms\n", kstats.io_wait_time);
+    } else {
+        printk(KERN_WARNING "Task delay accounting is enabled but task->delays is NULL.\n");
+    }
+#else
+    printk(KERN_WARNING "I/O wait time tracking is not enabled. Enable CONFIG_TASK_DELAY_ACCT and add kernel.task_delayacct=1 to /etc/sysctl.conf\n");
+#endif
 
     task_unlock(task);
 
